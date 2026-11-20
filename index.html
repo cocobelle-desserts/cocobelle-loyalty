@@ -20,7 +20,36 @@ function save(){localStorage.setItem(KEY,JSON.stringify(db));renderAdmin();rende
 function note(id,t,e=false){let x=document.getElementById(id);x.className=e?'msg err':'msg';x.textContent=t}
 function today(){let d=new Date();return [d.getFullYear(),String(d.getMonth()+1).padStart(2,'0'),String(d.getDate()).padStart(2,'0')].join('-')}
 function byid(id){return db.customers.find(c=>c.id.toLowerCase()===id.toLowerCase())}
-function register(){let n=document.getElementById('name').value.trim(),p=document.getElementById('phone').value.replace(/\\D/g,'');if(!n||!/^\\d{10}$/.test(p)){note('regmsg','Enter a name and valid 10-digit number.',true);return}if(db.customers.some(c=>c.phone===p)){note('regmsg','This number is already registered. Use the existing account.',true);return}let id='CB-'+Math.random().toString(36).slice(2,8).toUpperCase();db.customers.push({id,name:n,phone:p,visits:0,history:[],rewards:[]});save();note('regmsg','Demo account created. Customer ID: '+id);document.getElementById('findphone').value=p}
+  
+function register(){
+  let n=document.getElementById('name').value.trim();
+  let p=document.getElementById('phone').value.replace(/\D/g,'');
+
+  if(!n || !/^\d{10}$/.test(p)){
+    note('regmsg','Enter a name and valid 10-digit number.',true);
+    return;
+  }
+
+  if(db.customers.some(c=>c.phone===p)){
+    note('regmsg','This number is already registered. Use the existing account.',true);
+    return;
+  }
+
+  let id='CB-'+Math.random().toString(36).slice(2,8).toUpperCase();
+  db.customers.push({
+    id,
+    name:n,
+    phone:p,
+    visits:0,
+    history:[],
+    rewards:[]
+  });
+
+  save();
+  note('regmsg','Demo account created. Customer ID: '+id);
+  document.getElementById('findphone').value=p;
+}
+
 function lookup(){let p=document.getElementById('findphone').value.replace(/\\D/g,''),c=db.customers.find(x=>x.phone===p);if(!c){note('lookupmsg','Account not found. Register from Home first.',true);document.getElementById('panel').classList.add('hide');return}active=c;document.getElementById('lookupmsg').textContent='';document.getElementById('panel').classList.remove('hide');document.getElementById('cname').textContent='Hello, '+c.name+'!';document.getElementById('cid').textContent='Customer ID: '+c.id;let k=c.visits%10;document.getElementById('count').textContent=k+'/10';document.getElementById('bar').style.width=k*10+'%';document.getElementById('reward').textContent=k===0?'Your next reward cycle has started.':(10-k)+' more qualifying purchase(s) until your surprise gift!';let q=document.getElementById('qrcode');q.innerHTML='';if(window.QRCode)new QRCode(q,{text:c.id,width:170,height:170});else q.textContent='QR library unavailable. ID: '+c.id;let h=document.getElementById('history');h.innerHTML='';c.history.slice().reverse().forEach(v=>{let d=document.createElement('div');d.className='history';d.textContent=v.date+' · ₹'+v.amount+' · Cycle '+v.cycle;h.appendChild(d)});if(!c.history.length)h.textContent='No purchases recorded yet.'}
 function scan(){let el=document.getElementById('reader');el.innerHTML='';if(!window.Html5Qrcode){note('scanmsg','Scanner library unavailable. Enter Customer ID manually.',true);return}if(!isSecureContext){note('scanmsg','Camera needs an HTTPS website. This local file cannot access camera.',true);return}let s=new Html5Qrcode('reader');s.start({facingMode:'environment'},{fps:10,qrbox:220},v=>{document.getElementById('adminid').value=v;s.stop().then(()=>el.innerHTML='');note('scanmsg','QR scanned. Enter amount and verify.')}).catch(e=>note('scanmsg','Camera permission or device error: '+e,true))}
 function addVisit(){let id=document.getElementById('adminid').value.trim(),a=Number(document.getElementById('amount').value),c=byid(id);if(!c){note('adminmsg','Customer ID not found.',true);return}if(!Number.isFinite(a)||a<99){note('adminmsg','Minimum qualifying purchase is ₹99.',true);return}if(c.history.some(v=>v.date===today())){note('adminmsg','A visit is already recorded for this customer today.',true);return}if(c.rewards.some(r=>r.status==='Gift eligible')){note('adminmsg','Redeem the pending gift before starting another cycle.',true);return}c.visits++;let cycle=Math.floor((c.visits-1)/10)+1;c.history.push({date:today(),amount:a,cycle});if(c.visits%10===0)c.rewards.push({cycle,date:today(),status:'Gift eligible'});save();note('adminmsg','Visit recorded for '+c.name+'. '+(c.visits%10===0?'🎁 Gift is eligible!':''));document.getElementById('adminid').value='';document.getElementById('amount').value=''}
